@@ -1,0 +1,98 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>航班排班日历</title>
+  <link rel="stylesheet" href="style.css">
+</head>
+<body>
+  <div id="app">
+    <!-- 顶部栏 -->
+    <header id="header">
+      <div class="header-left">
+        <button id="prevMonth" class="nav-btn">&lt;</button>
+        <h1 id="monthTitle"></h1>
+        <button id="nextMonth" class="nav-btn">&gt;</button>
+        <button id="todayBtn" class="nav-btn today-btn">今天</button>
+      </div>
+      <div class="header-right">
+        <input type="text" id="searchBox" placeholder="搜索航班号、姓名..." />
+      </div>
+    </header>
+
+    <!-- 日历网格 -->
+    <div id="calendar">
+      <div class="weekday-row">
+        <div class="weekday">一</div>
+        <div class="weekday">二</div>
+        <div class="weekday">三</div>
+        <div class="weekday">四</div>
+        <div class="weekday">五</div>
+        <div class="weekday weekend">六</div>
+        <div class="weekday weekend">日</div>
+      </div>
+      <div id="daysGrid" class="days-grid"></div>
+    </div>
+
+    <!-- 航班详情面板 -->
+    <div id="detailPanel" class="detail-panel hidden">
+      <div class="detail-header">
+        <h2 id="detailDate"></h2>
+        <button id="closeDetail" class="close-btn">&times;</button>
+      </div>
+      <div id="flightList" class="flight-list"></div>
+      <button id="addFlightBtn" class="add-btn">+ 添加航班</button>
+    </div>
+
+    <!-- 编辑弹窗 -->
+    <div id="modal" class="modal hidden">
+      <div class="modal-content">
+        <h3 id="modalTitle">添加航班</h3>
+        <form id="flightForm">
+          <input type="hidden" id="flightId" />
+          <div class="form-group">
+            <label>航班号 <span class="hint">（填"训练"表示日常训练）</span></label>
+            <input type="text" id="flightNo" placeholder="如 CA1234 或 训练" />
+          </div>
+          <div class="form-row">
+            <div class="form-group">
+              <label>起飞地</label>
+              <input type="text" id="from" placeholder="如 北京首都 PEK" />
+            </div>
+            <div class="form-group">
+              <label>目的地</label>
+              <input type="text" id="to" placeholder="如 上海浦东 PVG" />
+            </div>
+          </div>
+          <div class="form-row">
+            <div class="form-group">
+              <label>机长姓名</label>
+              <input type="text" id="captain" placeholder="机长" />
+            </div>
+            <div class="form-group">
+              <label>乘务长姓名</label>
+              <input type="text" id="chiefAttendant" placeholder="乘务长" />
+            </div>
+          </div>
+          <div class="form-row">
+            <div class="form-group">
+              <label>机型</label>
+              <input type="text" id="aircraftType" placeholder="如 B737-800" />
+            </div>
+            <div class="form-group">
+              <label>注册号</label>
+              <input type="text" id="regNo" placeholder="如 B-1234" />
+            </div>
+          </div>
+          <div class="form-actions">
+            <button type="button" id="cancelBtn" class="btn-cancel">取消</button>
+            <button type="submit" class="btn-save">保存</button>
+          </div>
+        </form>
+      </div>
+    </div>
+  </div>
+  <script src="app.js"></script>
+</body>
+</html>

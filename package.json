@@ -1,0 +1,12 @@
+{
+  "name": "flight-calendar",
+  "version": "1.0.0",
+  "description": "航班排班日历应用",
+  "main": "main.js",
+  "scripts": {
+    "start": "electron ."
+  },
+  "devDependencies": {
+    "electron": "^35.7.5"
+  }
+}
