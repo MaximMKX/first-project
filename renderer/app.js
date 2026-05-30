@@ -14,6 +14,20 @@
     currentMonth = now.getMonth();
     renderCalendar();
     bindEvents();
+
+    // 尝试从 Supabase 拉取云端数据并合并
+    syncFromCloud();
+  }
+
+  async function syncFromCloud() {
+    const cloudData = await SupabaseService.fetchFlights();
+    if (cloudData) {
+      // 云端数据覆盖本地（以云端为准）
+      flightsData = cloudData;
+      await window.api.saveFlights(flightsData);
+      renderCalendar();
+      if (selectedDate) openDetail(selectedDate);
+    }
   }
 
   // ===== 事件绑定 =====
@@ -21,7 +35,15 @@
     $('#prevMonth').addEventListener('click', () => { changeMonth(-1); });
     $('#nextMonth').addEventListener('click', () => { changeMonth(1); });
     $('#todayBtn').addEventListener('click', goToday);
-    $('#searchBox').addEventListener('input', applySearchHighlight);
+    $('#searchBox').addEventListener('input', onSearchInput);
+    document.addEventListener('click', (e) => {
+      if (!e.target.closest('.search-wrapper')) hideSearchResults();
+    });
+    $('#voiceBtn').addEventListener('click', toggleVoiceRecognition);
+    $('#imgOcrBtn').addEventListener('click', () => $('#imageInput').click());
+    $('#imageInput').addEventListener('change', onImageSelected);
+    $('#smartCloseBtn').addEventListener('click', hideSmartPanel);
+    $('#smartAddBtn').addEventListener('click', onSmartAdd);
     $('#closeDetail').addEventListener('click', closeDetail);
     $('#addFlightBtn').addEventListener('click', () => openModal(selectedDate));
     $('#cancelBtn').addEventListener('click', closeModal);
@@ -219,6 +241,8 @@
     await window.api.saveFlights(flightsData);
     renderCalendar();
     if (selectedDate === dateStr) openDetail(dateStr);
+    // 同步到 Supabase
+    SupabaseService.upsertFlights(flightsData);
   }
 
   function openModal(dateStr, flightId) {
@@ -285,10 +309,81 @@
     if (!confirm('确定删除该航班？')) return;
     flightsData[dateStr] = (flightsData[dateStr] || []).filter(f => f.id !== flightId);
     if (flightsData[dateStr].length === 0) delete flightsData[dateStr];
-    await saveAndRefresh(dateStr);
+    await window.api.saveFlights(flightsData);
+    renderCalendar();
+    if (selectedDate === dateStr) openDetail(dateStr);
+    // 同步删除到 Supabase
+    SupabaseService.deleteFlightById(flightId);
+    SupabaseService.upsertFlights(flightsData);
   }
 
   // ===== 搜索 =====
+  function onSearchInput() {
+    applySearchHighlight();
+    performSearch();
+  }
+
+  function performSearch() {
+    const query = $('#searchBox').value.trim().toLowerCase();
+    const panel = $('#searchResults');
+
+    if (!query) {
+      hideSearchResults();
+      return;
+    }
+
+    const results = [];
+    for (const dateStr in flightsData) {
+      flightsData[dateStr].forEach(f => {
+        const fields = [f.flightNo, f.captain, f.chiefAttendant, f.from, f.to, f.aircraftType, f.regNo];
+        if (fields.some(v => (v || '').toLowerCase().includes(query))) {
+          results.push({ dateStr, flight: f });
+        }
+      });
+    }
+
+    results.sort((a, b) => a.dateStr.localeCompare(b.dateStr));
+
+    if (results.length === 0) {
+      panel.innerHTML = '<div class="search-empty">未找到匹配结果</div>';
+    } else {
+      panel.innerHTML = results.map(r => {
+        const f = r.flight;
+        const [y, m, d] = r.dateStr.split('-');
+        const dateLabel = `${y}年${parseInt(m)}月${parseInt(d)}日`;
+        const flightNo = escHtml(f.flightNo || '(无航班号)');
+        const route = escHtml((f.from || '-') + ' → ' + (f.to || '-'));
+        const crew = [f.captain, f.chiefAttendant].filter(Boolean).map(v => escHtml(v)).join(' / ');
+        return `<div class="search-result-item" data-date="${r.dateStr}">
+          <div class="search-result-date">${dateLabel}</div>
+          <div class="search-result-main">
+            <span class="search-result-flightno">${flightNo}</span>
+            <span class="search-result-route">${route}</span>
+          </div>
+          ${crew ? `<div class="search-result-crew">${crew}</div>` : ''}
+        </div>`;
+      }).join('');
+
+      panel.querySelectorAll('.search-result-item').forEach(item => {
+        item.addEventListener('click', () => {
+          const dateStr = item.dataset.date;
+          hideSearchResults();
+          const [y, m] = dateStr.split('-');
+          currentYear = parseInt(y);
+          currentMonth = parseInt(m) - 1;
+          renderCalendar();
+          openDetail(dateStr);
+        });
+      });
+    }
+
+    panel.classList.remove('hidden');
+  }
+
+  function hideSearchResults() {
+    $('#searchResults').classList.add('hidden');
+  }
+
   function applySearchHighlight() {
     const query = $('#searchBox').value.trim().toLowerCase();
     $$('.day-cell').forEach(cell => cell.classList.remove('search-match'));
@@ -308,6 +403,225 @@
       );
       if (match) cell.classList.add('search-match');
     });
+  }
+
+  // ===== 语音识别 =====
+  let voiceRecognition = null;
+  let isRecording = false;
+
+  function toggleVoiceRecognition() {
+    if (isRecording) {
+      stopVoiceRecognition();
+      return;
+    }
+    startVoiceRecognition();
+  }
+
+  function startVoiceRecognition() {
+    const SpeechRecognition = window.SpeechRecognition || window.webkitSpeechRecognition;
+    if (!SpeechRecognition) {
+      alert('当前浏览器不支持语音识别，请使用 Chrome 或 Edge 浏览器。');
+      return;
+    }
+
+    voiceRecognition = new SpeechRecognition();
+    voiceRecognition.lang = 'zh-CN';
+    voiceRecognition.interimResults = false;
+    voiceRecognition.maxAlternatives = 1;
+
+    voiceRecognition.onstart = () => {
+      isRecording = true;
+      $('#voiceBtn').classList.add('recording');
+    };
+
+    voiceRecognition.onresult = (event) => {
+      const text = event.results[0][0].transcript;
+      const parsed = parseFlightInfo(text);
+      showSmartPanel('语音识别结果', text, parsed);
+    };
+
+    voiceRecognition.onerror = (event) => {
+      console.error('语音识别错误:', event.error);
+      if (event.error !== 'aborted') {
+        alert('语音识别失败: ' + event.error);
+      }
+      stopVoiceRecognition();
+    };
+
+    voiceRecognition.onend = () => {
+      stopVoiceRecognition();
+    };
+
+    voiceRecognition.start();
+  }
+
+  function stopVoiceRecognition() {
+    isRecording = false;
+    $('#voiceBtn').classList.remove('recording');
+    if (voiceRecognition) {
+      try { voiceRecognition.stop(); } catch (e) {}
+      voiceRecognition = null;
+    }
+  }
+
+  // ===== 图片OCR =====
+  async function onImageSelected(e) {
+    const file = e.target.files[0];
+    if (!file) return;
+    e.target.value = '';
+
+    showSmartPanel('图片识别', '', null);
+    $('#ocrProgress').classList.remove('hidden');
+    $('#ocrProgressText').textContent = '0%';
+    $('#ocrProgressFill').style.width = '0%';
+
+    try {
+      const { Tesseract } = window;
+      if (!Tesseract) {
+        alert('OCR组件未加载，请确保网络连接正常。');
+        hideSmartPanel();
+        return;
+      }
+
+      const result = await Tesseract.recognize(file, 'chi_sim+eng', {
+        logger: (m) => {
+          if (m.status === 'recognizing text' && m.progress != null) {
+            const pct = Math.round(m.progress * 100);
+            $('#ocrProgressText').textContent = pct + '%';
+            $('#ocrProgressFill').style.width = pct + '%';
+          }
+        }
+      });
+
+      const text = result.data.text.trim();
+      const parsed = parseFlightInfo(text);
+      $('#recognizedText').textContent = text;
+      $('#ocrProgress').classList.add('hidden');
+      fillSmartFields(parsed);
+      $('#smartPanelTitle').textContent = '图片识别结果';
+    } catch (err) {
+      console.error('OCR错误:', err);
+      alert('图片识别失败: ' + err.message);
+      hideSmartPanel();
+    }
+  }
+
+  // ===== 信息解析 =====
+  function parseFlightInfo(text) {
+    const result = {
+      flightNo: '',
+      date: '',
+      from: '',
+      to: '',
+      captain: '',
+      chiefAttendant: '',
+      aircraftType: '',
+      regNo: '',
+    };
+
+    // 航班号: CA1234, MU5129, CZ3456 等
+    const flightMatch = text.match(/([A-Z]{2}\s*\d{3,4})/i);
+    if (flightMatch) result.flightNo = flightMatch[1].replace(/\s/g, '').toUpperCase();
+
+    // 训练
+    if (/训练/.test(text) && !result.flightNo) result.flightNo = '训练';
+
+    // 日期: 5月29日, 5月29, 2026-05-29, 05/29, 5/29
+    const now = new Date();
+    let dateMatch;
+    if ((dateMatch = text.match(/(\d{4})[-/年](\d{1,2})[-/月](\d{1,2})/))) {
+      result.date = `${dateMatch[1]}-${dateMatch[2].padStart(2, '0')}-${dateMatch[3].padStart(2, '0')}`;
+    } else if ((dateMatch = text.match(/(\d{1,2})\s*月\s*(\d{1,2})\s*[日号]?/))) {
+      const year = now.getFullYear();
+      result.date = `${year}-${dateMatch[1].padStart(2, '0')}-${dateMatch[2].padStart(2, '0')}`;
+    } else if ((dateMatch = text.match(/(\d{1,2})\s*号/))) {
+      const month = now.getMonth() + 1;
+      result.date = `${now.getFullYear()}-${String(month).padStart(2, '0')}-${dateMatch[1].padStart(2, '0')}`;
+    }
+
+    // 航线: XX到XX, XX→XX, XX-XX, XX至XX
+    const routeMatch = text.match(/([一-龥]{2,6}(?:[一-龥]{2,4})?)\s*(?:到|至|→|-|—)\s*([一-龥]{2,6}(?:[一-龥]{2,4})?)/);
+    if (routeMatch) {
+      result.from = routeMatch[1];
+      result.to = routeMatch[2];
+    }
+
+    // 机长: 机长XXX, CAPT:XXX, captain:XXX
+    const captainMatch = text.match(/(?:机长|CAPT(?:AIN)?[:\s]*)\s*([一-龥]{2,4})/i);
+    if (captainMatch) result.captain = captainMatch[1];
+
+    // 乘务长: 乘务长XXX, chief:XXX
+    const chiefMatch = text.match(/(?:乘务长|乘务组?长|CHIEF[:\s]*)\s*([一-龥]{2,4})/i);
+    if (chiefMatch) result.chiefAttendant = chiefMatch[1];
+
+    // 机型: A320, B737-800, A321neo, B787 等
+    const aircraftMatch = text.match(/(A\d{3}[A-Za-z]*[-\s]?\d{0,3}|B\d{3}[-\s]?\d{0,3}[A-Za-z]*)/i);
+    if (aircraftMatch) result.aircraftType = aircraftMatch[1].toUpperCase();
+
+    // 注册号: B-XXXX (4位字母数字) 或 B-XXXX (5位)
+    const regMatch = text.match(/(B-?[A-Z0-9]{4})/i);
+    if (regMatch) result.regNo = regMatch[1].toUpperCase();
+
+    return result;
+  }
+
+  // ===== 智能录入面板 =====
+  function showSmartPanel(title, rawText, parsed) {
+    $('#smartPanelTitle').textContent = title;
+    $('#recognizedText').textContent = rawText;
+    $('#ocrProgress').classList.add('hidden');
+    if (parsed) fillSmartFields(parsed);
+    $('#smartPanel').classList.remove('hidden');
+  }
+
+  function fillSmartFields(parsed) {
+    $('#smartDate').value = parsed.date || '';
+    $('#smartFlightNo').value = parsed.flightNo || '';
+    $('#smartFrom').value = parsed.from || '';
+    $('#smartTo').value = parsed.to || '';
+    $('#smartCaptain').value = parsed.captain || '';
+    $('#smartChiefAttendant').value = parsed.chiefAttendant || '';
+    $('#smartAircraftType').value = parsed.aircraftType || '';
+    $('#smartRegNo').value = parsed.regNo || '';
+  }
+
+  function hideSmartPanel() {
+    $('#smartPanel').classList.add('hidden');
+  }
+
+  function onSmartAdd() {
+    const dateStr = $('#smartDate').value;
+    const flightNo = $('#smartFlightNo').value.trim();
+
+    if (!dateStr) {
+      alert('请选择日期');
+      return;
+    }
+
+    if (!flightNo) {
+      alert('请输入航班号');
+      return;
+    }
+
+    // 关闭智能面板
+    hideSmartPanel();
+
+    // 切换到对应月份
+    const [y, m] = dateStr.split('-');
+    currentYear = parseInt(y);
+    currentMonth = parseInt(m) - 1;
+    renderCalendar();
+
+    // 打开添加弹窗并预填
+    selectedDate = dateStr;
+    openModal(dateStr);
+    $('#flightNo').value = flightNo;
+    $('#from').value = $('#smartFrom').value;
+    $('#to').value = $('#smartTo').value;
+    $('#captain').value = $('#smartCaptain').value;
+    $('#chiefAttendant').value = $('#smartChiefAttendant').value;
+    $('#aircraftType').value = $('#smartAircraftType').value;
+    $('#regNo').value = $('#smartRegNo').value;
   }
 
   // ===== 工具函数 =====

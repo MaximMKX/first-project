@@ -17,7 +17,17 @@
         <button id="todayBtn" class="nav-btn today-btn">今天</button>
       </div>
       <div class="header-right">
-        <input type="text" id="searchBox" placeholder="搜索航班号、姓名..." />
+        <button id="voiceBtn" class="icon-btn" title="语音录入">
+          <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 1a3 3 0 0 0-3 3v8a3 3 0 0 0 6 0V4a3 3 0 0 0-3-3z"/><path d="M19 10v2a7 7 0 0 1-14 0v-2"/><line x1="12" y1="19" x2="12" y2="23"/><line x1="8" y1="23" x2="16" y2="23"/></svg>
+        </button>
+        <button id="imgOcrBtn" class="icon-btn" title="图片识别">
+          <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="3" width="18" height="18" rx="2" ry="2"/><circle cx="8.5" cy="8.5" r="1.5"/><polyline points="21 15 16 10 5 21"/></svg>
+        </button>
+        <input type="file" id="imageInput" accept="image/*" style="display:none" />
+        <div class="search-wrapper">
+          <input type="text" id="searchBox" placeholder="搜索航班号、姓名..." />
+          <div id="searchResults" class="search-results hidden"></div>
+        </div>
       </div>
     </header>
 
@@ -43,6 +53,64 @@
       </div>
       <div id="flightList" class="flight-list"></div>
       <button id="addFlightBtn" class="add-btn">+ 添加航班</button>
+    </div>
+
+    <!-- 智能录入面板 -->
+    <div id="smartPanel" class="smart-panel hidden">
+      <div class="smart-panel-header">
+        <h3 id="smartPanelTitle">智能录入</h3>
+        <button id="smartCloseBtn" class="close-btn">&times;</button>
+      </div>
+      <div class="smart-panel-body">
+        <div id="recognizedText" class="recognized-text"></div>
+        <div id="ocrProgress" class="ocr-progress hidden">
+          <div class="ocr-progress-bar"><div id="ocrProgressFill" class="ocr-progress-fill"></div></div>
+          <span id="ocrProgressText">识别中...</span>
+        </div>
+        <div class="smart-fields">
+          <div class="form-group">
+            <label>日期</label>
+            <input type="date" id="smartDate" />
+          </div>
+          <div class="form-group">
+            <label>航班号</label>
+            <input type="text" id="smartFlightNo" placeholder="如 CA1234" />
+          </div>
+          <div class="form-row">
+            <div class="form-group">
+              <label>起飞地</label>
+              <input type="text" id="smartFrom" placeholder="如 浦东PVG" />
+            </div>
+            <div class="form-group">
+              <label>目的地</label>
+              <input type="text" id="smartTo" placeholder="如 大兴PKX" />
+            </div>
+          </div>
+          <div class="form-row">
+            <div class="form-group">
+              <label>机长</label>
+              <input type="text" id="smartCaptain" placeholder="机长姓名" />
+            </div>
+            <div class="form-group">
+              <label>乘务长</label>
+              <input type="text" id="smartChiefAttendant" placeholder="乘务长姓名" />
+            </div>
+          </div>
+          <div class="form-row">
+            <div class="form-group">
+              <label>机型</label>
+              <input type="text" id="smartAircraftType" placeholder="如 A321-200" />
+            </div>
+            <div class="form-group">
+              <label>注册号</label>
+              <input type="text" id="smartRegNo" placeholder="如 B-9907" />
+            </div>
+          </div>
+        </div>
+        <div class="smart-actions">
+          <button id="smartAddBtn" class="btn-save">添加到日历</button>
+        </div>
+      </div>
     </div>
 
     <!-- 编辑弹窗 -->
@@ -93,6 +161,10 @@
       </div>
     </div>
   </div>
+  <script src="../node_modules/tesseract.js/dist/tesseract.min.js"></script>
+  <script src="../node_modules/@supabase/supabase-js/dist/umd/supabase.js"></script>
+  <script src="supabase-config.js"></script>
+  <script src="supabase-service.js"></script>
   <script src="app.js"></script>
 </body>
 </html>
