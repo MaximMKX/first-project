@@ -34,3 +34,18 @@ CREATE TRIGGER set_updated_at
 BEFORE UPDATE ON flights
 FOR EACH ROW
 EXECUTE FUNCTION update_updated_at();
+
+-- 允许匿名访问（Web 版本需要）
+ALTER TABLE flights ENABLE ROW LEVEL SECURITY;
+
+CREATE POLICY "允许匿名读取" ON flights
+  FOR SELECT USING (true);
+
+CREATE POLICY "允许匿名插入" ON flights
+  FOR INSERT WITH CHECK (true);
+
+CREATE POLICY "允许匿名更新" ON flights
+  FOR UPDATE USING (true);
+
+CREATE POLICY "允许匿名删除" ON flights
+  FOR DELETE USING (true);

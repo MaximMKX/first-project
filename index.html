@@ -1,0 +1,171 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>航班排班日历</title>
+  <link rel="stylesheet" href="renderer/style.css">
+</head>
+<body>
+  <div id="app">
+    <!-- 顶部栏 -->
+    <header id="header">
+      <div class="header-left">
+        <button id="prevMonth" class="nav-btn">&lt;</button>
+        <h1 id="monthTitle"></h1>
+        <button id="nextMonth" class="nav-btn">&gt;</button>
+        <button id="todayBtn" class="nav-btn today-btn">今天</button>
+      </div>
+      <div class="header-right">
+        <button id="voiceBtn" class="icon-btn" title="语音录入">
+          <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 1a3 3 0 0 0-3 3v8a3 3 0 0 0 6 0V4a3 3 0 0 0-3-3z"/><path d="M19 10v2a7 7 0 0 1-14 0v-2"/><line x1="12" y1="19" x2="12" y2="23"/><line x1="8" y1="23" x2="16" y2="23"/></svg>
+        </button>
+        <button id="imgOcrBtn" class="icon-btn" title="图片识别">
+          <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="3" width="18" height="18" rx="2" ry="2"/><circle cx="8.5" cy="8.5" r="1.5"/><polyline points="21 15 16 10 5 21"/></svg>
+        </button>
+        <input type="file" id="imageInput" accept="image/*" style="display:none" />
+        <div class="search-wrapper">
+          <input type="text" id="searchBox" placeholder="搜索航班号、姓名..." />
+          <div id="searchResults" class="search-results hidden"></div>
+        </div>
+      </div>
+    </header>
+
+    <!-- 日历网格 -->
+    <div id="calendar">
+      <div class="weekday-row">
+        <div class="weekday">一</div>
+        <div class="weekday">二</div>
+        <div class="weekday">三</div>
+        <div class="weekday">四</div>
+        <div class="weekday">五</div>
+        <div class="weekday weekend">六</div>
+        <div class="weekday weekend">日</div>
+      </div>
+      <div id="daysGrid" class="days-grid"></div>
+    </div>
+
+    <!-- 航班详情面板 -->
+    <div id="detailPanel" class="detail-panel hidden">
+      <div class="detail-header">
+        <h2 id="detailDate"></h2>
+        <button id="closeDetail" class="close-btn">&times;</button>
+      </div>
+      <div id="flightList" class="flight-list"></div>
+      <button id="addFlightBtn" class="add-btn">+ 添加航班</button>
+    </div>
+
+    <!-- 智能录入面板 -->
+    <div id="smartPanel" class="smart-panel hidden">
+      <div class="smart-panel-header">
+        <h3 id="smartPanelTitle">智能录入</h3>
+        <button id="smartCloseBtn" class="close-btn">&times;</button>
+      </div>
+      <div class="smart-panel-body">
+        <div id="recognizedText" class="recognized-text"></div>
+        <div id="ocrProgress" class="ocr-progress hidden">
+          <div class="ocr-progress-bar"><div id="ocrProgressFill" class="ocr-progress-fill"></div></div>
+          <span id="ocrProgressText">识别中...</span>
+        </div>
+        <div class="smart-fields">
+          <div class="form-group">
+            <label>日期</label>
+            <input type="date" id="smartDate" />
+          </div>
+          <div class="form-group">
+            <label>航班号</label>
+            <input type="text" id="smartFlightNo" placeholder="如 CA1234" />
+          </div>
+          <div class="form-row">
+            <div class="form-group">
+              <label>起飞地</label>
+              <input type="text" id="smartFrom" placeholder="如 浦东PVG" />
+            </div>
+            <div class="form-group">
+              <label>目的地</label>
+              <input type="text" id="smartTo" placeholder="如 大兴PKX" />
+            </div>
+          </div>
+          <div class="form-row">
+            <div class="form-group">
+              <label>机长</label>
+              <input type="text" id="smartCaptain" placeholder="机长姓名" />
+            </div>
+            <div class="form-group">
+              <label>乘务长</label>
+              <input type="text" id="smartChiefAttendant" placeholder="乘务长姓名" />
+            </div>
+          </div>
+          <div class="form-row">
+            <div class="form-group">
+              <label>机型</label>
+              <input type="text" id="smartAircraftType" placeholder="如 A321-200" />
+            </div>
+            <div class="form-group">
+              <label>注册号</label>
+              <input type="text" id="smartRegNo" placeholder="如 B-9907" />
+            </div>
+          </div>
+        </div>
+        <div class="smart-actions">
+          <button id="smartAddBtn" class="btn-save">添加到日历</button>
+        </div>
+      </div>
+    </div>
+
+    <!-- 编辑弹窗 -->
+    <div id="modal" class="modal hidden">
+      <div class="modal-content">
+        <h3 id="modalTitle">添加航班</h3>
+        <form id="flightForm">
+          <input type="hidden" id="flightId" />
+          <div class="form-group">
+            <label>航班号 <span class="hint">（填"训练"表示日常训练）</span></label>
+            <input type="text" id="flightNo" placeholder="如 CA1234 或 训练" />
+          </div>
+          <div class="form-row">
+            <div class="form-group">
+              <label>起飞地</label>
+              <input type="text" id="from" placeholder="如 北京首都 PEK" />
+            </div>
+            <div class="form-group">
+              <label>目的地</label>
+              <input type="text" id="to" placeholder="如 上海浦东 PVG" />
+            </div>
+          </div>
+          <div class="form-row">
+            <div class="form-group">
+              <label>机长姓名</label>
+              <input type="text" id="captain" placeholder="机长" />
+            </div>
+            <div class="form-group">
+              <label>乘务长姓名</label>
+              <input type="text" id="chiefAttendant" placeholder="乘务长" />
+            </div>
+          </div>
+          <div class="form-row">
+            <div class="form-group">
+              <label>机型</label>
+              <input type="text" id="aircraftType" placeholder="如 B737-800" />
+            </div>
+            <div class="form-group">
+              <label>注册号</label>
+              <input type="text" id="regNo" placeholder="如 B-1234" />
+            </div>
+          </div>
+          <div class="form-actions">
+            <button type="button" id="cancelBtn" class="btn-cancel">取消</button>
+            <button type="submit" class="btn-save">保存</button>
+          </div>
+        </form>
+      </div>
+    </div>
+  </div>
+  <!-- Web 版本：从 CDN 加载 Supabase -->
+  <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2/dist/umd/supabase.min.js"></script>
+  <script src="web-adapter.js"></script>
+  <!-- OCR（Web 版从 CDN 加载） -->
+  <script src="https://cdn.jsdelivr.net/npm/tesseract.js@5/dist/tesseract.min.js"></script>
+  <script src="renderer/app.js"></script>
+</body>
+</html>

@@ -15,8 +15,8 @@
     renderCalendar();
     bindEvents();
 
-    // 尝试从 Supabase 拉取云端数据并合并
-    syncFromCloud();
+    // Electron 模式下从 Supabase 同步；Web 模式已直接用 Supabase 作为数据源
+    if (!window.__WEB_MODE__) syncFromCloud();
   }
 
   async function syncFromCloud() {
@@ -244,9 +244,11 @@
     await window.api.saveFlights(flightsData);
     renderCalendar();
     if (selectedDate === dateStr) openDetail(dateStr);
-    // 同步到 Supabase
-    console.log('[Sync] 正在同步到 Supabase...');
-    SupabaseService.upsertFlights(flightsData);
+    // Electron 模式下同步到 Supabase
+    if (!window.__WEB_MODE__) {
+      console.log('[Sync] 正在同步到 Supabase...');
+      SupabaseService.upsertFlights(flightsData);
+    }
   }
 
   function openModal(dateStr, flightId) {
@@ -316,9 +318,11 @@
     await window.api.saveFlights(flightsData);
     renderCalendar();
     if (selectedDate === dateStr) openDetail(dateStr);
-    // 同步删除到 Supabase
-    SupabaseService.deleteFlightById(flightId);
-    SupabaseService.upsertFlights(flightsData);
+    // Electron 模式下同步删除到 Supabase
+    if (!window.__WEB_MODE__) {
+      SupabaseService.deleteFlightById(flightId);
+      SupabaseService.upsertFlights(flightsData);
+    }
   }
 
   // ===== 搜索 =====
