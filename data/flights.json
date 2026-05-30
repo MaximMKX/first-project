@@ -10,5 +10,29 @@
       "aircraftType": "A321-200",
       "regNo": "B-9907"
     }
+  ],
+  "2026-05-30": [
+    {
+      "id": "mps23wpvo24xh",
+      "flightNo": "MU5334",
+      "from": "浦东PVG",
+      "to": "重庆CKG",
+      "captain": "魏旭",
+      "chiefAttendant": "宦玉丽",
+      "aircraftType": "A321-200",
+      "regNo": "B-8572"
+    }
+  ],
+  "2026-05-28": [
+    {
+      "id": "mps2cxtind85f",
+      "flightNo": "训练",
+      "from": "",
+      "to": "",
+      "captain": "",
+      "chiefAttendant": "",
+      "aircraftType": "",
+      "regNo": ""
+    }
   ]
 }

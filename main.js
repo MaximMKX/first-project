@@ -20,6 +20,7 @@ function createWindow() {
       nodeIntegration: false,
     },
   });
+  win.webContents.openDevTools({ mode: 'detach' });
   win.loadFile(path.join(__dirname, 'renderer', 'index.html'));
 }
 

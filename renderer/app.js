@@ -20,13 +20,16 @@
   }
 
   async function syncFromCloud() {
+    console.log('[Sync] 尝试从 Supabase 拉取数据...');
     const cloudData = await SupabaseService.fetchFlights();
     if (cloudData) {
-      // 云端数据覆盖本地（以云端为准）
+      console.log('[Sync] 云端数据拉取成功:', cloudData);
       flightsData = cloudData;
       await window.api.saveFlights(flightsData);
       renderCalendar();
       if (selectedDate) openDetail(selectedDate);
+    } else {
+      console.log('[Sync] 云端无数据或拉取失败，使用本地数据');
     }
   }
 
@@ -242,6 +245,7 @@
     renderCalendar();
     if (selectedDate === dateStr) openDetail(dateStr);
     // 同步到 Supabase
+    console.log('[Sync] 正在同步到 Supabase...');
     SupabaseService.upsertFlights(flightsData);
   }
 

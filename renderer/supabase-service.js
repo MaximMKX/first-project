@@ -78,7 +78,10 @@ const SupabaseService = (() => {
 
   // 批量上传航班（用于初始同步）
   async function upsertFlights(flightsData) {
-    if (!supabase) return;
+    if (!supabase) {
+      console.warn('[Supabase] 客户端未初始化，跳过同步');
+      return;
+    }
 
     try {
       const rows = [];
@@ -86,15 +89,23 @@ const SupabaseService = (() => {
         flightsData[dateStr].forEach(f => rows.push(toRow(dateStr, f)));
       }
 
-      if (rows.length === 0) return;
+      if (rows.length === 0) {
+        console.log('[Supabase] 无数据需要同步');
+        return;
+      }
 
-      const { error } = await supabase
+      console.log('[Supabase] 正在上传', rows.length, '条记录...');
+      const { data, error } = await supabase
         .from('flights')
         .upsert(rows, { onConflict: 'id' });
 
-      if (error) console.error('Supabase 批量同步失败:', error.message);
+      if (error) {
+        console.error('Supabase 批量同步失败:', error.message, error);
+      } else {
+        console.log('[Supabase] 同步成功');
+      }
     } catch (err) {
-      console.error('Supabase 批量同步异常:', err.message);
+      console.error('Supabase 批量同步异常:', err.message, err);
     }
   }
 
